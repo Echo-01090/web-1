@@ -4,7 +4,7 @@
   "private": true,
   "description": "A classroom AI news assistant using RSS discovery and Firecrawl retrieval.",
   "scripts": {
-    "check": "node --check script.js && node --check api/news.js && node --check api/scrape.js && node --check api/jobs/scan.js"
+    "check": "node --check script.js && node --check api/news.js && node --check api/scrape.js && node --check api/crawl.js && node --check api/crawl/status.js && node --check api/jobs/scan.js"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5"

@@ -213,7 +213,8 @@ input:disabled {
   gap: 0.55rem;
 }
 
-.filter-control input {
+.filter-control input,
+.filter-control select {
   width: 100%;
   min-height: 3.4rem;
   border: 1px solid var(--line);
@@ -223,12 +224,23 @@ input:disabled {
   background: rgba(4, 13, 24, 0.65);
 }
 
+.filter-control select {
+  color-scheme: dark;
+}
+
 .explorer-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr) auto;
   gap: 1.25rem;
   align-items: end;
   padding-top: 2rem;
+}
+
+.depth-help {
+  margin: 0.8rem 0 0;
+  padding-inline: clamp(1.25rem, 4vw, 3rem);
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .explorer-form .primary-button {
@@ -455,6 +467,70 @@ input:disabled {
 .page-result a {
   display: inline-block;
   margin-top: 1rem;
+  color: var(--mint);
+  font-weight: 800;
+}
+
+.crawl-summary {
+  padding: 1.25rem;
+  border: 1px solid rgba(94, 230, 177, 0.34);
+  border-radius: 1.1rem;
+  background: rgba(9, 35, 43, 0.72);
+}
+
+.crawl-summary h3 {
+  margin-bottom: 1rem;
+}
+
+.crawl-summary dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.45rem 1rem;
+  margin: 0;
+}
+
+.crawl-summary dt {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.crawl-summary dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: #f4f8fb;
+}
+
+.crawl-page-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.crawl-page-card {
+  padding: 1.25rem;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 1rem;
+  background: rgba(5, 17, 31, 0.72);
+}
+
+.crawl-page-card h4 {
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.crawl-page-card .result-url {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.crawl-excerpt {
+  color: #c7d3df;
+  line-height: 1.65;
+}
+
+.crawl-page-card a {
   color: var(--mint);
   font-weight: 800;
 }
@@ -692,6 +768,14 @@ footer strong:last-child {
   .job-card:first-child {
     grid-column: auto;
   }
+
+  .explorer-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .explorer-form .filter-control:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 650px) {
@@ -710,6 +794,14 @@ footer strong:last-child {
   .deep-read,
   .explorer-form {
     grid-template-columns: 1fr;
+  }
+
+  .crawl-page-list {
+    grid-template-columns: 1fr;
+  }
+
+  .explorer-form .filter-control:first-child {
+    grid-column: auto;
   }
 
   .controls {

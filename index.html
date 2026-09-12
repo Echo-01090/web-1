@@ -64,20 +64,30 @@
         <div class="section-heading">
           <div>
             <p class="section-number">02 / Web Explorer</p>
-            <h2 id="explorer-title">Explore Any Web Page</h2>
+            <h2 id="explorer-title">Explore Any Website</h2>
           </div>
-          <p>Firecrawl retrieves one public webpage directly. It does not crawl the rest of the site.</p>
+          <p>Read one public page, or follow its same-domain links up to three levels deep.</p>
         </div>
 
         <form id="explorer-form" class="explorer-form" novalidate>
           <label class="filter-control" for="explorer-url">
-            <span>Public webpage URL</span>
+            <span>Public website URL</span>
             <input id="explorer-url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com/article">
           </label>
-          <button id="scrape-page" class="primary-button" type="submit">Scrape Page</button>
+          <label class="filter-control" for="explore-depth">
+            <span>Explore Depth</span>
+            <select id="explore-depth">
+              <option value="0">0 — This page only</option>
+              <option value="1">1 — This page + links on it</option>
+              <option value="2">2 — Two link levels</option>
+              <option value="3">3 — Three link levels</option>
+            </select>
+          </label>
+          <button id="scrape-page" class="primary-button" type="submit">Explore Site</button>
         </form>
 
-        <p id="explorer-status" class="status-message" role="status">Enter one public http:// or https:// webpage.</p>
+        <p class="depth-help">Deeper exploration follows more internal links. Every crawl stays on the entered domain and stops at 25 pages.</p>
+        <p id="explorer-status" class="status-message" role="status">Enter one public http:// or https:// website.</p>
 
         <div id="explorer-result" class="explorer-result" aria-live="polite">
           <div class="empty-state">
@@ -149,7 +159,7 @@
     </main>
 
     <footer>
-      <p><strong>RSS</strong> tells us what changed. <strong>Firecrawl</strong> lets us read one webpage.</p>
+      <p><strong>RSS</strong> tells us what changed. <strong>Firecrawl</strong> lets us read a page or explore its site.</p>
     </footer>
   </body>
 </html>

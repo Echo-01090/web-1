@@ -5,6 +5,7 @@ const articleList = document.querySelector("#article-list");
 const deepReadContent = document.querySelector("#deep-read-content");
 const explorerForm = document.querySelector("#explorer-form");
 const explorerUrl = document.querySelector("#explorer-url");
+const exploreDepth = document.querySelector("#explore-depth");
 const scrapeButton = document.querySelector("#scrape-page");
 const explorerStatus = document.querySelector("#explorer-status");
 const explorerResult = document.querySelector("#explorer-result");
@@ -196,6 +197,7 @@ function renderDeepReadMessage(titleText, detailText) {
 async function explorePage(event) {
   event.preventDefault();
   const url = explorerUrl.value.trim();
+  const depth = Number(exploreDepth.value);
 
   if (!url) {
     renderExplorerMessage("A webpage URL is required.", "Enter one public http:// or https:// address, then try again.", true);
@@ -203,34 +205,90 @@ async function explorePage(event) {
     return;
   }
 
+  if (!isPublicWebUrl(url)) {
+    renderExplorerMessage("A valid public webpage URL is required.", "Use a complete http:// or https:// address, then try again.", true);
+    explorerUrl.focus();
+    return;
+  }
+
   if (explorerController) explorerController.abort();
   explorerController = new AbortController();
   scrapeButton.disabled = true;
-  scrapeButton.textContent = "Scraping…";
-  renderExplorerMessage("Retrieving one webpage…", "Firecrawl is processing only the URL you entered.");
+  exploreDepth.disabled = true;
+  scrapeButton.textContent = depth === 0 ? "Reading…" : "Starting…";
 
   try {
-    const response = await fetch("/api/scrape", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-      signal: explorerController.signal
-    });
-    const result = await readJson(response);
-
-    if (!response.ok) {
-      throw new Error(result.error || "This webpage could not be retrieved.");
+    if (depth === 0) {
+      renderExplorerMessage("Retrieving one webpage…", "Firecrawl is processing only the URL you entered.");
+      const result = await postJson("/api/scrape", { url }, explorerController.signal);
+      renderExplorerResult(result);
+      return;
     }
 
-    renderExplorerResult(result);
+    renderExplorerMessage("Starting crawl…", `Preparing a same-domain crawl to depth ${depth}.`);
+    const crawl = await postJson("/api/crawl", { url, depth }, explorerController.signal);
+    const result = await pollCrawl(crawl.id, explorerController.signal);
+    renderCrawlResult(result, url, depth);
   } catch (error) {
     if (error.name !== "AbortError") {
       renderExplorerMessage("Web Explorer could not finish.", `${error.message} You can correct the URL or retry.`, true);
     }
   } finally {
     scrapeButton.disabled = false;
-    scrapeButton.textContent = "Scrape Page";
+    exploreDepth.disabled = false;
+    scrapeButton.textContent = "Explore Site";
   }
+}
+
+async function postJson(path, body, signal) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal
+  });
+  const result = await readJson(response);
+
+  if (!response.ok) throw new Error(result.error || "The request could not be completed.");
+  return result;
+}
+
+async function pollCrawl(id, signal) {
+  for (let attempt = 0; attempt < 90; attempt += 1) {
+    if (attempt > 0) await abortableDelay(2000, signal);
+
+    const response = await fetch(`/api/crawl/status?id=${encodeURIComponent(id)}`, { signal });
+    const result = await readJson(response);
+    if (!response.ok) throw new Error(result.error || "The crawl status could not be retrieved.");
+
+    if (result.status === "failed") {
+      throw new Error(result.error || "Firecrawl could not complete this site crawl.");
+    }
+    if (result.status === "completed") return result;
+
+    const pageCount = Number(result.pagesRetrieved || 0);
+    setExplorerStatus(pageCount > 0 ? `Exploring site… ${pageCount} pages retrieved.` : "Exploring site…");
+  }
+
+  throw new Error("The crawl is taking longer than expected. Please retry in a moment.");
+}
+
+function abortableDelay(milliseconds, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const timeout = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function renderExplorerResult(result) {
@@ -267,6 +325,65 @@ function renderExplorerResult(result) {
   resultCard.append(source, title, url, description, content, link);
   explorerResult.append(resultCard);
   setExplorerStatus(`Retrieved one page from ${result.domain}.`);
+}
+
+function renderCrawlResult(result, startUrl, depth) {
+  explorerResult.replaceChildren();
+
+  const summary = document.createElement("section");
+  summary.className = "crawl-summary";
+  const heading = document.createElement("h3");
+  heading.textContent = "Site exploration complete";
+  const facts = document.createElement("dl");
+  [
+    ["Start URL", startUrl],
+    ["Explore depth", String(depth)],
+    ["Pages retrieved", String(result.pagesRetrieved)],
+    ["25-page cap", result.capReached ? "Reached" : "Not reached"]
+  ].forEach(([label, value]) => {
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const detail = document.createElement("dd");
+    detail.textContent = value;
+    facts.append(term, detail);
+  });
+  summary.append(heading, facts);
+
+  const cards = document.createElement("div");
+  cards.className = "crawl-page-list";
+  if (result.pages.length === 0) {
+    const message = document.createElement("div");
+    message.className = "empty-state";
+    const title = document.createElement("p");
+    title.textContent = "No readable pages were returned.";
+    const detail = document.createElement("span");
+    detail.textContent = "The crawl completed, but Firecrawl did not return page excerpts.";
+    message.append(title, detail);
+    cards.append(message);
+  }
+  result.pages.forEach((page) => {
+    const card = document.createElement("article");
+    card.className = "crawl-page-card";
+    const title = document.createElement("h4");
+    title.textContent = page.title;
+    const url = document.createElement("p");
+    url.className = "result-url";
+    url.textContent = page.url;
+    const excerpt = document.createElement("p");
+    excerpt.className = "crawl-excerpt";
+    excerpt.textContent = page.excerpt || "No readable excerpt was returned for this page.";
+    const link = document.createElement("a");
+    link.href = page.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open Page ↗";
+    card.append(title, url, excerpt, link);
+    cards.append(card);
+  });
+
+  explorerResult.append(summary, cards);
+  const capMessage = result.capReached ? " The 25-page safety cap was reached." : "";
+  setExplorerStatus(`Completed — ${result.pagesRetrieved} pages retrieved.${capMessage}`);
 }
 
 function renderExplorerMessage(titleText, detailText, isError = false) {
