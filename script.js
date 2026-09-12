@@ -267,7 +267,8 @@ async function pollCrawl(id, signal) {
     if (result.status === "completed") return result;
 
     const pageCount = Number(result.pagesRetrieved || 0);
-    setExplorerStatus(pageCount > 0 ? `Exploring site… ${pageCount} pages retrieved.` : "Exploring site…");
+    const pageLabel = pageCount === 1 ? "page" : "pages";
+    setExplorerStatus(pageCount > 0 ? `Exploring site… ${pageCount} ${pageLabel} retrieved.` : "Exploring site…");
   }
 
   throw new Error("The crawl is taking longer than expected. Please retry in a moment.");
@@ -383,7 +384,8 @@ function renderCrawlResult(result, startUrl, depth) {
 
   explorerResult.append(summary, cards);
   const capMessage = result.capReached ? " The 25-page safety cap was reached." : "";
-  setExplorerStatus(`Completed — ${result.pagesRetrieved} pages retrieved.${capMessage}`);
+  const pageLabel = Number(result.pagesRetrieved) === 1 ? "page" : "pages";
+  setExplorerStatus(`Completed — ${result.pagesRetrieved} ${pageLabel} retrieved.${capMessage}`);
 }
 
 function renderExplorerMessage(titleText, detailText, isError = false) {
