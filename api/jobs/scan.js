@@ -173,7 +173,7 @@ function normalizeJob(value, sourceUrl, sourceDomain, sourceText = "") {
     transferableSkills: groundedList(raw.transferableSkills, sourceText),
     futureRelevantSignals: groundedList(raw.futureRelevantSignals, sourceText),
     learningSignals: groundedList(raw.learningSignals, sourceText),
-    seniorityWarnings: groundedList(raw.seniorityWarnings, sourceText),
+    seniorityWarnings: groundedList(raw.seniorityWarnings, sourceText).filter(isStrongSeniorityWarning),
     sourceDomain
   };
 }
@@ -293,6 +293,12 @@ function normalizeEvidence(value) {
 function evidenceWords(value) {
   const ignored = new Set(["and", "are", "for", "from", "into", "of", "on", "or", "the", "this", "to", "with"]);
   return normalizeEvidence(value).split(" ").filter((word) => word.length > 2 && !ignored.has(word));
+}
+
+function isStrongSeniorityWarning(value) {
+  return /\b(?:[5-9]|\d{2,})\+? years?\b/i.test(value)
+    || /\b(?:requires?|required|minimum|at least|must have)\b.{0,40}\b(?:senior|lead|principal|head|director|executive)\b/i.test(value)
+    || /\b(?:senior|lead|principal|head|director|executive)\s+(?:role|position|title|level)\b/i.test(value);
 }
 
 function emptyJob(sourceDomain) {
