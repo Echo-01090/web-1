@@ -86,6 +86,66 @@
           </div>
         </div>
       </section>
+
+      <section class="job-scout" aria-labelledby="job-scout-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-number">04 / Firecrawl Extension</p>
+            <h2 id="job-scout-title">Junior Job Scout</h2>
+          </div>
+          <p>Paste up to 5 public job-listing pages. We will compare visible roles and surface promising early-career opportunities.</p>
+        </div>
+
+        <form id="job-scout-form" class="job-scout-form" novalidate>
+          <div class="job-url-grid">
+            <label class="job-url-control" for="job-source-1">
+              <span>Job Source 1 URL <strong>Required</strong></span>
+              <input id="job-source-1" class="job-source-url" type="url" inputmode="url" autocomplete="url" placeholder="https://publicjobs.example/search" required aria-describedby="job-source-status-1">
+              <small id="job-source-status-1" class="source-status" data-source-status="0">Waiting</small>
+            </label>
+            <label class="job-url-control" for="job-source-2">
+              <span>Job Source 2 URL</span>
+              <input id="job-source-2" class="job-source-url" type="url" inputmode="url" autocomplete="url" placeholder="https://…" aria-describedby="job-source-status-2">
+              <small id="job-source-status-2" class="source-status" data-source-status="1">Waiting</small>
+            </label>
+            <label class="job-url-control" for="job-source-3">
+              <span>Job Source 3 URL</span>
+              <input id="job-source-3" class="job-source-url" type="url" inputmode="url" autocomplete="url" placeholder="https://…" aria-describedby="job-source-status-3">
+              <small id="job-source-status-3" class="source-status" data-source-status="2">Waiting</small>
+            </label>
+            <label class="job-url-control" for="job-source-4">
+              <span>Job Source 4 URL</span>
+              <input id="job-source-4" class="job-source-url" type="url" inputmode="url" autocomplete="url" placeholder="https://…" aria-describedby="job-source-status-4">
+              <small id="job-source-status-4" class="source-status" data-source-status="3">Waiting</small>
+            </label>
+            <label class="job-url-control" for="job-source-5">
+              <span>Job Source 5 URL</span>
+              <input id="job-source-5" class="job-source-url" type="url" inputmode="url" autocomplete="url" placeholder="https://…" aria-describedby="job-source-status-5">
+              <small id="job-source-status-5" class="source-status" data-source-status="4">Waiting</small>
+            </label>
+          </div>
+
+          <div class="job-scout-actions">
+            <button id="find-jobs" class="primary-button" type="submit">Find Junior Opportunities</button>
+            <button id="clear-jobs" class="secondary-button" type="button">Clear Results</button>
+          </div>
+        </form>
+
+        <p id="job-scout-status" class="status-message" role="status">Add at least one public job-listing page to begin.</p>
+
+        <section class="job-results" aria-labelledby="job-results-title" aria-live="polite">
+          <div class="job-results-heading">
+            <p class="section-number">Ranked comparison</p>
+            <h3 id="job-results-title">Top 5 Junior Opportunities</h3>
+          </div>
+          <div id="job-results-list" class="job-results-list">
+            <div class="empty-state">
+              <p>No job pages scanned yet.</p>
+              <span>Results from successful sources will be merged into one ranked view.</span>
+            </div>
+          </div>
+        </section>
+      </section>
     </main>
 
     <footer>

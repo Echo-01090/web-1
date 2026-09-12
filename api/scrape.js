@@ -110,10 +110,18 @@ function validatePublicUrl(value) {
 
     const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     if (hostname === "localhost" || hostname.endsWith(".local") || hostname === "::1") return null;
-    if (/^127\./.test(hostname) || /^10\./.test(hostname) || /^192\.168\./.test(hostname)) return null;
+    if (!hostname.includes(".") && !hostname.includes(":")) return null;
+    if (/^(?:0|10|127|169\.254|192\.168)\./.test(hostname)) return null;
+    if (/^(?:fc|fd|fe[89ab])[0-9a-f]*:/i.test(hostname)) return null;
 
     const private172 = hostname.match(/^172\.(\d{1,3})\./);
     if (private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31) return null;
+
+    const carrierGradeNat = hostname.match(/^100\.(\d{1,3})\./);
+    if (carrierGradeNat && Number(carrierGradeNat[1]) >= 64 && Number(carrierGradeNat[1]) <= 127) return null;
+
+    const firstOctet = hostname.match(/^(\d{1,3})\./);
+    if (firstOctet && Number(firstOctet[1]) >= 224) return null;
 
     return url.toString();
   } catch {

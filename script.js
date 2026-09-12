@@ -8,14 +8,24 @@ const explorerUrl = document.querySelector("#explorer-url");
 const scrapeButton = document.querySelector("#scrape-page");
 const explorerStatus = document.querySelector("#explorer-status");
 const explorerResult = document.querySelector("#explorer-result");
+const jobScoutForm = document.querySelector("#job-scout-form");
+const jobSourceInputs = [...document.querySelectorAll(".job-source-url")];
+const jobSourceStatuses = [...document.querySelectorAll("[data-source-status]")];
+const findJobsButton = document.querySelector("#find-jobs");
+const clearJobsButton = document.querySelector("#clear-jobs");
+const jobScoutStatus = document.querySelector("#job-scout-status");
+const jobResultsList = document.querySelector("#job-results-list");
 
 let loadedArticles = [];
 let deepReadController = null;
 let explorerController = null;
+let jobScoutController = null;
 
 loadButton.addEventListener("click", loadLatestNews);
 filterInput.addEventListener("input", renderFilteredArticles);
 explorerForm.addEventListener("submit", explorePage);
+jobScoutForm.addEventListener("submit", scanJobPages);
+clearJobsButton.addEventListener("click", clearJobScout);
 
 async function loadLatestNews() {
   loadButton.disabled = true;
@@ -277,6 +287,213 @@ function renderExplorerMessage(titleText, detailText, isError = false) {
 function setExplorerStatus(message, isError = false) {
   explorerStatus.textContent = message;
   explorerStatus.classList.toggle("error", isError);
+}
+
+async function scanJobPages(event) {
+  event.preventDefault();
+  const values = jobSourceInputs.map((input) => input.value.trim());
+
+  resetJobSourceStatuses();
+  if (!values[0]) {
+    setJobScoutStatus("Job Source 1 URL is required.", true);
+    setJobSourceStatus(0, "Invalid URL", "error");
+    jobSourceInputs[0].focus();
+    return;
+  }
+
+  const invalidIndex = values.findIndex((value) => value && !isPublicWebUrl(value));
+  if (invalidIndex >= 0) {
+    setJobScoutStatus(`Job Source ${invalidIndex + 1} must be a public http:// or https:// URL.`, true);
+    setJobSourceStatus(invalidIndex, "Invalid URL", "error");
+    jobSourceInputs[invalidIndex].focus();
+    return;
+  }
+
+  const urls = values.filter(Boolean);
+  if (jobScoutController) jobScoutController.abort();
+  jobScoutController = new AbortController();
+  findJobsButton.disabled = true;
+  findJobsButton.textContent = "Scanning…";
+  values.forEach((value, index) => {
+    if (value) setJobSourceStatus(index, "Scanning", "scanning");
+  });
+  renderJobScoutMessage("Comparing supplied job pages…", "Each exact page is being extracted independently. One failed source will not cancel the others.");
+
+  try {
+    const response = await fetch("/api/jobs/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+      signal: jobScoutController.signal
+    });
+    const result = await readJson(response);
+    updateJobSourceStatuses(values, result.sources || []);
+
+    if (!response.ok) {
+      throw new Error(result.error || "The supplied job pages could not be scanned.");
+    }
+
+    renderJobResults(result.jobs || []);
+    const failed = (result.sources || []).filter((source) => source.status === "could_not_extract").length;
+    const partial = failed ? ` ${failed} source${failed === 1 ? "" : "s"} could not be extracted; successful sources were still ranked.` : "";
+    const jobCount = result.jobs?.length || 0;
+    const summary = jobCount
+      ? `Found ${jobCount} recommended junior opportunit${jobCount === 1 ? "y" : "ies"}.`
+      : "No qualifying junior opportunities were found.";
+    setJobScoutStatus(`${summary}${partial}`);
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      renderJobScoutMessage("Junior Job Scout could not finish.", error.message, true);
+    }
+  } finally {
+    findJobsButton.disabled = false;
+    findJobsButton.textContent = "Find Junior Opportunities";
+  }
+}
+
+function renderJobResults(jobs) {
+  jobResultsList.replaceChildren();
+  const usableJobs = jobs.slice(0, 5).filter((job) => Array.isArray(job.reasons) && job.reasons.length === 3);
+
+  if (usableJobs.length === 0) {
+    renderJobScoutMessage("No qualifying junior opportunities were found.", "Try another public page with visible entry-level, graduate, trainee, assistant, coordinator, or analyst roles.");
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  usableJobs.forEach((job) => fragment.append(createJobCard(job)));
+  jobResultsList.append(fragment);
+}
+
+function createJobCard(job) {
+  const card = document.createElement("article");
+  card.className = "job-card";
+
+  const rank = document.createElement("p");
+  rank.className = "job-rank";
+  rank.textContent = `#${job.rank}`;
+
+  const source = document.createElement("p");
+  source.className = "retrieved-from";
+  source.textContent = job.sourceDomain;
+
+  const title = document.createElement("h4");
+  title.textContent = job.title;
+
+  const facts = document.createElement("dl");
+  facts.className = "job-facts";
+  appendJobFact(facts, "Employer", job.employer);
+  appendJobFact(facts, "Location", job.location);
+  appendJobFact(facts, "Type", job.employmentType);
+  appendJobFact(facts, "Published", job.postedDate);
+
+  const reasons = document.createElement("ul");
+  reasons.className = "job-reasons";
+  job.reasons.forEach((reason) => {
+    const item = document.createElement("li");
+    const heading = document.createElement("strong");
+    heading.textContent = `${reason.heading}: `;
+    item.append(heading, document.createTextNode(reason.text));
+    reasons.append(item);
+  });
+
+  card.append(rank, source, title);
+  if (facts.children.length) card.append(facts);
+  card.append(reasons);
+
+  if (job.jobUrl) {
+    const link = document.createElement("a");
+    link.href = job.jobUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open Job Posting ↗";
+    card.append(link);
+  }
+
+  return card;
+}
+
+function appendJobFact(list, labelText, value) {
+  if (!value) return;
+  const wrapper = document.createElement("div");
+  const label = document.createElement("dt");
+  label.textContent = labelText;
+  const detail = document.createElement("dd");
+  detail.textContent = value;
+  wrapper.append(label, detail);
+  list.append(wrapper);
+}
+
+function updateJobSourceStatuses(values, sources) {
+  values.forEach((value, index) => {
+    if (!value) return;
+    const normalized = normalizeComparableUrl(value);
+    const source = sources.find((item) => item.url === normalized);
+    if (!source) {
+      setJobSourceStatus(index, "Could not extract", "error");
+      return;
+    }
+
+    if (source.status === "extracted") setJobSourceStatus(index, "Extracted", "success");
+    else if (source.status === "no_jobs") setJobSourceStatus(index, "No jobs found", "empty");
+    else setJobSourceStatus(index, "Could not extract", "error");
+  });
+}
+
+function setJobSourceStatus(index, text, state = "") {
+  const status = jobSourceStatuses[index];
+  if (!status) return;
+  status.textContent = text;
+  status.dataset.state = state;
+}
+
+function resetJobSourceStatuses() {
+  jobSourceStatuses.forEach((_, index) => setJobSourceStatus(index, "Waiting"));
+}
+
+function clearJobScout() {
+  if (jobScoutController) jobScoutController.abort();
+  jobScoutController = null;
+  jobScoutForm.reset();
+  resetJobSourceStatuses();
+  renderJobScoutMessage("No job pages scanned yet.", "Results from successful sources will be merged into one ranked view.");
+  setJobScoutStatus("Add at least one public job-listing page to begin.");
+}
+
+function renderJobScoutMessage(titleText, detailText, isError = false) {
+  jobResultsList.replaceChildren();
+  const message = document.createElement("div");
+  message.className = "empty-state";
+
+  const title = document.createElement("p");
+  title.textContent = titleText;
+  const detail = document.createElement("span");
+  detail.textContent = detailText;
+
+  message.append(title, detail);
+  jobResultsList.append(message);
+  setJobScoutStatus(titleText, isError);
+}
+
+function setJobScoutStatus(message, isError = false) {
+  jobScoutStatus.textContent = message;
+  jobScoutStatus.classList.toggle("error", isError);
+}
+
+function isPublicWebUrl(value) {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function normalizeComparableUrl(value) {
+  try {
+    return new URL(value).toString();
+  } catch {
+    return value;
+  }
 }
 
 function renderEmptyState(titleText, detailText) {
