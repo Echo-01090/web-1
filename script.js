@@ -3,12 +3,19 @@ const filterInput = document.querySelector("#news-filter");
 const statusMessage = document.querySelector("#news-status");
 const articleList = document.querySelector("#article-list");
 const deepReadContent = document.querySelector("#deep-read-content");
+const explorerForm = document.querySelector("#explorer-form");
+const explorerUrl = document.querySelector("#explorer-url");
+const scrapeButton = document.querySelector("#scrape-page");
+const explorerStatus = document.querySelector("#explorer-status");
+const explorerResult = document.querySelector("#explorer-result");
 
 let loadedArticles = [];
 let deepReadController = null;
+let explorerController = null;
 
 loadButton.addEventListener("click", loadLatestNews);
 filterInput.addEventListener("input", renderFilteredArticles);
+explorerForm.addEventListener("submit", explorePage);
 
 async function loadLatestNews() {
   loadButton.disabled = true;
@@ -174,6 +181,102 @@ function renderDeepReadMessage(titleText, detailText) {
   const detail = document.createElement("p");
   detail.textContent = detailText;
   deepReadContent.append(title, detail);
+}
+
+async function explorePage(event) {
+  event.preventDefault();
+  const url = explorerUrl.value.trim();
+
+  if (!url) {
+    renderExplorerMessage("A webpage URL is required.", "Enter one public http:// or https:// address, then try again.", true);
+    explorerUrl.focus();
+    return;
+  }
+
+  if (explorerController) explorerController.abort();
+  explorerController = new AbortController();
+  scrapeButton.disabled = true;
+  scrapeButton.textContent = "Scraping…";
+  renderExplorerMessage("Retrieving one webpage…", "Firecrawl is processing only the URL you entered.");
+
+  try {
+    const response = await fetch("/api/scrape", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+      signal: explorerController.signal
+    });
+    const result = await readJson(response);
+
+    if (!response.ok) {
+      throw new Error(result.error || "This webpage could not be retrieved.");
+    }
+
+    renderExplorerResult(result);
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      renderExplorerMessage("Web Explorer could not finish.", `${error.message} You can correct the URL or retry.`, true);
+    }
+  } finally {
+    scrapeButton.disabled = false;
+    scrapeButton.textContent = "Scrape Page";
+  }
+}
+
+function renderExplorerResult(result) {
+  explorerResult.replaceChildren();
+
+  const resultCard = document.createElement("article");
+  resultCard.className = "page-result";
+
+  const source = document.createElement("p");
+  source.className = "retrieved-from";
+  source.textContent = `Firecrawl · ${result.domain}`;
+
+  const title = document.createElement("h3");
+  title.textContent = result.title;
+
+  const url = document.createElement("p");
+  url.className = "result-url";
+  url.textContent = result.url;
+
+  const description = document.createElement("p");
+  description.className = "retrieved-description";
+  description.textContent = result.description || "No page description was available.";
+
+  const content = document.createElement("p");
+  content.className = "content-excerpt";
+  content.textContent = result.content;
+
+  const link = document.createElement("a");
+  link.href = result.url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "Open Original Page ↗";
+
+  resultCard.append(source, title, url, description, content, link);
+  explorerResult.append(resultCard);
+  setExplorerStatus(`Retrieved one page from ${result.domain}.`);
+}
+
+function renderExplorerMessage(titleText, detailText, isError = false) {
+  explorerResult.replaceChildren();
+  const message = document.createElement("div");
+  message.className = "empty-state";
+
+  const title = document.createElement("p");
+  title.textContent = titleText;
+  const detail = document.createElement("span");
+  detail.textContent = detailText;
+
+  message.append(title, detail);
+  explorerResult.append(message);
+  setExplorerStatus(titleText, isError);
+}
+
+function setExplorerStatus(message, isError = false) {
+  explorerStatus.textContent = message;
+  explorerStatus.classList.toggle("error", isError);
 }
 
 function renderEmptyState(titleText, detailText) {

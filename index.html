@@ -59,6 +59,33 @@
           </div>
         </div>
       </section>
+
+      <section class="web-explorer" aria-labelledby="explorer-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-number">02 / Web Explorer</p>
+            <h2 id="explorer-title">Explore Any Web Page</h2>
+          </div>
+          <p>Firecrawl retrieves one public webpage directly. It does not crawl the rest of the site.</p>
+        </div>
+
+        <form id="explorer-form" class="explorer-form" novalidate>
+          <label class="filter-control" for="explorer-url">
+            <span>Public webpage URL</span>
+            <input id="explorer-url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com/article">
+          </label>
+          <button id="scrape-page" class="primary-button" type="submit">Scrape Page</button>
+        </form>
+
+        <p id="explorer-status" class="status-message" role="status">Enter one public http:// or https:// webpage.</p>
+
+        <div id="explorer-result" class="explorer-result" aria-live="polite">
+          <div class="empty-state">
+            <p>No page explored yet.</p>
+            <span>The retrieved result will stay separate from the RSS news feed.</span>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>

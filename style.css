@@ -115,10 +115,21 @@ h1 {
   box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.25);
 }
 
+.web-explorer {
+  overflow: hidden;
+  margin-top: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 1.75rem;
+  background: rgba(17, 27, 47, 0.9);
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.18);
+}
+
 .section-heading,
 .controls,
 .status-message,
-.article-list {
+.article-list,
+.explorer-form,
+.explorer-result {
   padding-inline: clamp(1.25rem, 4vw, 3rem);
 }
 
@@ -201,6 +212,18 @@ input:disabled {
   background: rgba(4, 13, 24, 0.65);
 }
 
+.explorer-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem;
+  align-items: end;
+  padding-top: 2rem;
+}
+
+.explorer-form .primary-button {
+  min-width: 10rem;
+}
+
 .filter-control input::placeholder {
   color: #718198;
 }
@@ -267,6 +290,64 @@ input:disabled {
 }
 
 .deep-read a {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--mint);
+  font-weight: 800;
+}
+
+.explorer-result {
+  padding-top: 1rem;
+  padding-bottom: 3rem;
+}
+
+.page-result {
+  padding: clamp(1.25rem, 4vw, 2rem);
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  border-radius: 1.25rem;
+  background: rgba(5, 17, 31, 0.72);
+}
+
+.page-result h3 {
+  margin-bottom: 0.5rem;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  letter-spacing: -0.025em;
+}
+
+.page-result .retrieved-from {
+  margin-bottom: 0.75rem;
+  color: var(--sky);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page-result .result-url {
+  overflow-wrap: anywhere;
+  margin-bottom: 1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.page-result .retrieved-description {
+  color: #d7e2ec;
+  line-height: 1.7;
+}
+
+.page-result .content-excerpt {
+  max-height: 28rem;
+  overflow: auto;
+  margin-bottom: 0;
+  padding: 1rem;
+  border-left: 3px solid var(--mint);
+  color: #c7d3df;
+  background: rgba(2, 11, 20, 0.5);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.page-result a {
   display: inline-block;
   margin-top: 1rem;
   color: var(--mint);
@@ -406,7 +487,8 @@ footer strong:last-child {
 
   .section-heading,
   .controls,
-  .deep-read {
+  .deep-read,
+  .explorer-form {
     grid-template-columns: 1fr;
   }
 
