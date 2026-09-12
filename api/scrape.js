@@ -50,7 +50,7 @@ module.exports = async function handler(request, response) {
 
     const page = payload.data || payload;
     const metadata = page.metadata || {};
-    const content = String(page.markdown || "").trim().slice(0, MAX_CONTENT_LENGTH);
+    const content = cleanMarkdown(page.markdown).slice(0, MAX_CONTENT_LENGTH);
 
     if (!content) {
       return response.status(502).json({ error: "Firecrawl reached the page but returned no readable content. You can retry." });
@@ -78,6 +78,27 @@ function parseBody(value) {
   } catch {
     return null;
   }
+}
+
+function cleanMarkdown(value) {
+  let lines = String(value || "").replace(/\r\n?/g, "\n").split("\n");
+  const articleHeading = lines.findIndex((line) => /^#\s+\S/.test(line.trim()));
+
+  // Firecrawl can occasionally include an anti-bot interstitial before the
+  // article. When a primary heading is present, start immediately after it.
+  if (articleHeading >= 0) lines = lines.slice(articleHeading + 1);
+
+  const unwantedLine = /^(?:Checking your Browser…?|Verifying\.\.\.|Stuck\?|Success!|Verification (?:failed|expired)|Refresh|Close)$/i;
+  const unwantedLink = /^\[(?:Share on|Share over|Copy Share Link|Troubleshoot|Refresh|Privacy)\b/i;
+
+  lines = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (unwantedLine.test(trimmed) || unwantedLink.test(trimmed)) return false;
+    if (/^!\[.*\]\(.+\)(?:\*\*Image Credits:.*)?$/.test(trimmed)) return false;
+    return true;
+  });
+
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function validatePublicUrl(value) {
@@ -124,3 +145,4 @@ function readableFirecrawlError(status, detail) {
 }
 
 module.exports.validatePublicUrl = validatePublicUrl;
+module.exports.cleanMarkdown = cleanMarkdown;
