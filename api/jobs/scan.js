@@ -107,7 +107,7 @@ async function scanSource(url, apiKey) {
       },
       body: JSON.stringify({
         url,
-        formats: [{ type: "json", prompt: EXTRACTION_PROMPT, schema: JOB_SCHEMA }],
+        formats: ["markdown", { type: "json", prompt: EXTRACTION_PROMPT, schema: JOB_SCHEMA }],
         onlyMainContent: true,
         removeBase64Images: true,
         blockAds: true,
@@ -124,7 +124,13 @@ async function scanSource(url, apiKey) {
     const page = payload.data || payload;
     const extracted = page.json && typeof page.json === "object" ? page.json : {};
     const rawJobs = Array.isArray(extracted.jobs) ? extracted.jobs.slice(0, MAX_JOBS_PER_SOURCE) : [];
-    const jobs = rawJobs.map((job) => normalizeJob(job, url, domain)).filter((job) => job.title);
+    const sourceText = String(page.markdown || "").slice(0, 120000);
+    if (!sourceText.trim()) {
+      return failedSource(url, domain, "This page could not be cleanly extracted. Try another public job page.");
+    }
+    const jobs = rawJobs
+      .map((job) => normalizeJob(job, url, domain, sourceText))
+      .filter((job) => job.title);
 
     if (jobs.length === 0) {
       return {
@@ -150,21 +156,24 @@ async function scanSource(url, apiKey) {
   }
 }
 
-function normalizeJob(value, sourceUrl, sourceDomain) {
+function normalizeJob(value, sourceUrl, sourceDomain, sourceText = "") {
   const raw = value && typeof value === "object" ? value : {};
+  const title = cleanString(raw.title, 180);
+  if (!title || !containsExactEvidence(sourceText, title)) return emptyJob(sourceDomain);
+
   return {
-    title: cleanString(raw.title, 180),
-    employer: cleanString(raw.employer, 160),
-    location: cleanString(raw.location, 160),
-    jobUrl: normalizeJobUrl(raw.jobUrl, sourceUrl),
-    postedDate: cleanString(raw.postedDate, 80),
-    employmentType: cleanString(raw.employmentType, 100),
-    description: cleanString(raw.description, 700),
-    juniorEvidence: cleanList(raw.juniorEvidence),
-    transferableSkills: cleanList(raw.transferableSkills),
-    futureRelevantSignals: cleanList(raw.futureRelevantSignals),
-    learningSignals: cleanList(raw.learningSignals),
-    seniorityWarnings: cleanList(raw.seniorityWarnings),
+    title,
+    employer: groundedString(raw.employer, 160, sourceText),
+    location: groundedString(raw.location, 160, sourceText),
+    jobUrl: normalizeJobUrl(raw.jobUrl, sourceUrl, sourceText),
+    postedDate: groundedString(raw.postedDate, 80, sourceText),
+    employmentType: groundedString(raw.employmentType, 100, sourceText),
+    description: groundedString(raw.description, 700, sourceText),
+    juniorEvidence: groundedList(raw.juniorEvidence, sourceText),
+    transferableSkills: groundedList(raw.transferableSkills, sourceText),
+    futureRelevantSignals: groundedList(raw.futureRelevantSignals, sourceText),
+    learningSignals: groundedList(raw.learningSignals, sourceText),
+    seniorityWarnings: groundedList(raw.seniorityWarnings, sourceText),
     sourceDomain
   };
 }
@@ -232,13 +241,15 @@ function deduplicateJobs(jobs) {
   });
 }
 
-function normalizeJobUrl(value, sourceUrl) {
-  if (typeof value !== "string" || !value.trim()) return "";
+function normalizeJobUrl(value, sourceUrl, sourceText) {
+  if (typeof value !== "string" || !value.trim()) return sourceUrl;
   try {
     const resolved = new URL(value.trim(), sourceUrl).toString();
-    return validatePublicUrl(resolved) || "";
+    const validated = validatePublicUrl(resolved);
+    if (!validated) return sourceUrl;
+    return sourceText.includes(validated) || validated === sourceUrl ? validated : sourceUrl;
   } catch {
-    return "";
+    return sourceUrl;
   }
 }
 
@@ -251,8 +262,49 @@ function cleanList(value) {
   return [...new Set(value.map((item) => cleanString(item, 220)).filter(Boolean))].slice(0, 8);
 }
 
+function groundedString(value, maximum, sourceText) {
+  const cleaned = cleanString(value, maximum);
+  return cleaned && containsSupportedEvidence(sourceText, cleaned) ? cleaned : "";
+}
+
+function groundedList(value, sourceText) {
+  return cleanList(value).filter((item) => containsSupportedEvidence(sourceText, item));
+}
+
+function containsExactEvidence(sourceText, evidence) {
+  const page = normalizeEvidence(sourceText);
+  const candidate = normalizeEvidence(evidence);
+  return candidate.length >= 3 && page.includes(candidate);
+}
+
+function containsSupportedEvidence(sourceText, evidence) {
+  if (containsExactEvidence(sourceText, evidence)) return true;
+  const pageWords = new Set(evidenceWords(sourceText));
+  const candidateWords = evidenceWords(evidence);
+  if (candidateWords.length === 0) return false;
+  const supported = candidateWords.filter((word) => pageWords.has(word)).length;
+  return supported >= Math.ceil(candidateWords.length * 0.7);
+}
+
+function normalizeEvidence(value) {
+  return String(value || "").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function evidenceWords(value) {
+  const ignored = new Set(["and", "are", "for", "from", "into", "of", "on", "or", "the", "this", "to", "with"]);
+  return normalizeEvidence(value).split(" ").filter((word) => word.length > 2 && !ignored.has(word));
+}
+
+function emptyJob(sourceDomain) {
+  return {
+    title: "", employer: "", location: "", jobUrl: "", postedDate: "",
+    employmentType: "", description: "", juniorEvidence: [], transferableSkills: [],
+    futureRelevantSignals: [], learningSignals: [], seniorityWarnings: [], sourceDomain
+  };
+}
+
 function jobText(job) {
-  return [job.title, job.description, ...job.juniorEvidence, ...job.seniorityWarnings].join(" ");
+  return [job.title, ...job.juniorEvidence, ...job.seniorityWarnings].join(" ");
 }
 
 function matchSignals(text, patterns) {
